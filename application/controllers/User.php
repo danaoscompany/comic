@@ -735,7 +735,7 @@ class User extends CI_Controller {
 			if ($opponent != null) {
 				$opponentName = $opponent['name'];
 			}
-			$privateMessages = $this->db->query("SELECT * FROM `private_chat_messages` WHERE `uuid`='" . $privateChat['uuid'] . "'")->result_array();
+			$privateMessages = $this->db->query("SELECT * FROM `private_chat_messages` WHERE `uuid`='" . $privateChat['uuid'] . "' ORDER BY `date` DESC LIMIT 1")->result_array();
 			if (sizeof($privateMessages) > 0) {
 				$lastMessage = $privateMessages[0]['message'];
 				$lastMessageType = $privateMessages[0]['type'];
