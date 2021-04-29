@@ -592,6 +592,10 @@ class User extends CI_Controller {
 			'message' => $message,
 			'date' => $date
 		));
+		$this->db->where("uuid", $uuid);
+		$this->db->update('private_chats', array(
+			'date' => $date
+		));
 		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
 		FCM::send_notification("Pesan baru", $message, $receiver['fcm_id'], array(
 			'type' => 'new_private_message',
@@ -620,6 +624,10 @@ class User extends CI_Controller {
 			'message' => $message,
 			'type' => 'image',
 			'image' => $image,
+			'date' => $date
+		));
+		$this->db->where("uuid", $uuid);
+		$this->db->update('private_chats', array(
 			'date' => $date
 		));
 		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
@@ -660,6 +668,10 @@ class User extends CI_Controller {
 			'message' => $message,
 			'type' => 'sticker',
 			'sticker_ids' => json_encode($stickerIDs),
+			'date' => $date
+		));
+		$this->db->where("uuid", $uuid);
+		$this->db->update('private_chats', array(
 			'date' => $date
 		));
 		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
