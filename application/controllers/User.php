@@ -354,7 +354,15 @@ class User extends CI_Controller {
 			$id = intval($this->db->insert_id());
 			echo $id;
 		} else {
-			$id = intval($users[0]['id']);
+			$user = $users[0];
+			$currentName = $user['name'];
+			if ($currentName == null || trim($currentName) == "") {
+				$this->db->where('google_uuid', $uuid);
+				$this->db->update('users', array(
+					'name' => $name
+				));
+			}
+			$id = intval($user['id']);
 			echo $id;
 		}
 	}
