@@ -435,13 +435,76 @@ class User extends CI_Controller {
 		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array();
 		$this->db->insert('group_messages', array(
 			'user_id' => $userID,
+			'type' => 'text',
 			'message' => $message,
 			'date' => $date
 		));
 		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
 			'type' => 'new_group_message',
 			'user_id' => "" . $userID,
+			'subtype' => 'text',
 			'message' => $message,
+			'user' => json_encode($user),
+			'date' => $date
+		));
+	}
+	
+	public function send_group_chat_image() {
+		$userID = intval($this->input->post('user_id'));
+		$message = $this->input->post('message');
+		$date = $this->input->post('date');
+		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array();
+		$config['upload_path']          = './userdata/';
+	    $config['allowed_types']        = '*';
+	    $config['max_size']             = 2147483647;
+	    $config['file_name']            = Util::generateUUIDv4();
+		$this->load->library('upload', $config);
+	    if ($this->upload->do_upload('file')) {
+	    	$fileName = $this->upload->data()['file_name'];
+	    	$this->db->insert('group_messages', array(
+				'user_id' => $userID,
+				'type' => 'image',
+				'message' => $message,
+				'image' => $fileName,
+				'date' => $date
+			));
+			FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
+				'type' => 'new_group_message',
+				'user_id' => "" . $userID,
+				'subtype' => 'image',
+				'message' => $message,
+				'image' => $fileName,
+				'user' => json_encode($user),
+				'date' => $date
+			));
+	    } else {
+	        echo json_encode($this->upload->display_errors());
+	    }
+	}
+	
+	public function send_group_chat_sticker() {
+		$userID = intval($this->input->post('user_id'));
+		$message = $this->input->post('message');
+		$date = $this->input->post('date');
+		$stickerIDs = json_decode($this->input->post('sticker_ids'));
+		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array();
+		$stickers = [];
+		for ($i=0; $i<sizeof($stickerIDs); $i++) {
+			array_push($stickers, $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$i])->row_array());
+		}
+		$this->db->insert('group_messages', array(
+			'user_id' => $userID,
+			'type' => 'sticker',
+			'message' => $message,
+			'sticker_ids' => json_encode($stickerIDs),
+			'date' => $date
+		));
+		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
+			'type' => 'new_group_message',
+			'user_id' => "" . $userID,
+			'subtype' => 'sticker',
+			'message' => $message,
+			'stickers' => json_encode($stickers),
 			'user' => json_encode($user),
 			'date' => $date
 		));
@@ -462,6 +525,14 @@ class User extends CI_Controller {
 		$messages = $this->db->query("SELECT * FROM `group_messages` ORDER BY `date` DESC LIMIT " . $start . "," . $length)->result_array();
 		for ($i=0; $i<sizeof($messages); $i++) {
 			$messages[$i]['user'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $messages[$i]['user_id'])->row_array();
+			$stickers = [];
+			if ($messages[$i]['type'] == 'sticker') {
+				$stickerIDs = json_decode($messages[$i]['sticker_ids'], true);
+				for ($j=0; $j<sizeof($stickerIDs); $j++) {
+					array_push($stickers, $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array());
+				}
+			}
+			$messages[$i]['stickers'] = $stickers;
 		}
 		echo json_encode($messages);
 	}
