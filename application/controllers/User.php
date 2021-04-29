@@ -716,7 +716,7 @@ class User extends CI_Controller {
 		$userID = intval($this->input->post('user_id'));
 		$start = intval($this->input->post('start'));
 		$length = intval($this->input->post('length'));
-		$lastGroupMessageJSON = $this->db->query("SELECT * FROM `group_messages` ORDER BY `date` LIMIT 1")->row_array();
+		$lastGroupMessageJSON = $this->db->query("SELECT * FROM `group_messages` ORDER BY `date` DESC LIMIT 1")->row_array();
 		$lastGroupMessage = "";
 		if ($lastGroupMessageJSON['type'] == 'text') {
 			$lastGroupMessage = $lastGroupMessageJSON['message'];
