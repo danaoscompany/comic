@@ -50,13 +50,14 @@ class FCM {
 	    //echo $result;
 	}
 
-	public static function send_notification($title, $body, $token, $data) {
+	public static function send_notification($title, $body, $token, $data, $clickAction) {
 		$url = 'https://fcm.googleapis.com/fcm/send';
 	    $fields = array(
             'registration_ids' => array($token),
             'notification' => array(
             	'title' => $title,
-            	'body' => $body
+            	'body' => $body,
+            	'click_action' => $clickAction
             )
     	);
     	if (sizeof($data) > 0) {

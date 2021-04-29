@@ -379,6 +379,7 @@ class User extends CI_Controller {
 		$userID = $this->input->post('user_id');
 		$premium = $this->input->post('premium');
 		$this->db->query("UPDATE `users` SET `premium`=" . $premium . " WHERE `id`=" . $userID);
+		echo "UPDATE `users` SET `premium`=" . $premium . " WHERE `id`=" . $userID;
 	}
 	
 	public function get_user_by_google_uuid() {
@@ -453,33 +454,24 @@ class User extends CI_Controller {
 		$userID = intval($this->input->post('user_id'));
 		$message = $this->input->post('message');
 		$date = $this->input->post('date');
+		$image = $this->input->post('image');
 		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array();
-		$config['upload_path']          = './userdata/';
-	    $config['allowed_types']        = '*';
-	    $config['max_size']             = 2147483647;
-	    $config['file_name']            = Util::generateUUIDv4();
-		$this->load->library('upload', $config);
-	    if ($this->upload->do_upload('file')) {
-	    	$fileName = $this->upload->data()['file_name'];
-	    	$this->db->insert('group_messages', array(
-				'user_id' => $userID,
-				'type' => 'image',
-				'message' => $message,
-				'image' => $fileName,
-				'date' => $date
-			));
-			FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
-				'type' => 'new_group_message',
-				'user_id' => "" . $userID,
-				'subtype' => 'image',
-				'message' => $message,
-				'image' => $fileName,
-				'user' => json_encode($user),
-				'date' => $date
-			));
-	    } else {
-	        echo json_encode($this->upload->display_errors());
-	    }
+		$this->db->insert('group_messages', array(
+			'user_id' => $userID,
+			'type' => 'image',
+			'message' => $message,
+			'image' => $image,
+			'date' => $date
+		));
+		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
+			'type' => 'new_group_message',
+			'user_id' => "" . $userID,
+			'subtype' => 'image',
+			'message' => $message,
+			'image' => $image,
+			'user' => json_encode($user),
+			'date' => $date
+		));
 	}
 	
 	public function send_group_chat_sticker() {
@@ -560,6 +552,17 @@ class User extends CI_Controller {
 		$messages = $this->db->query("SELECT * FROM `private_chat_messages` WHERE `uuid`='" . $uuid . "' ORDER BY `date` DESC LIMIT " . $start . "," . $length)->result_array();
 		for ($i=0; $i<sizeof($messages); $i++) {
 			$messages[$i]['user'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $messages[$i]['user_id'])->row_array();
+			$stickers = [];
+			if ($messages[$i]['type'] == 'sticker') {
+				$stickerIDs = json_decode($messages[$i]['sticker_ids'], true);
+				for ($j=0; $j<sizeof($stickerIDs); $j++) {
+					$sticker = $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array();
+					if ($sticker != null) {
+						array_push($stickers, $sticker);
+					}
+				}
+			}
+			$messages[$i]['stickers'] = $stickers;
 		}
 		echo json_encode(array(
 			'uuid' => $uuid,
@@ -577,16 +580,94 @@ class User extends CI_Controller {
 		$this->db->insert('private_chat_messages', array(
 			'uuid' => $uuid,
 			'user_id' => $senderUserID,
+			'type' => 'text',
 			'message' => $message,
 			'date' => $date
 		));
 		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
 		FCM::send_message("Pesan baru", "", $receiver['fcm_id'], array(
 			'type' => 'new_private_message',
+			'subtype' => 'text',
 			'sender_user_id' => "" . $senderUserID,
 			'receiver_user_id' => "" . $receiverUserID,
 			'message' => $message,
 			'user' => json_encode($user),
+			'date' => $date
+		));
+	}
+	
+	public function send_private_chat_image() {
+		$uuid = $this->input->post('uuid');
+		$senderUserID = intval($this->input->post('sender_user_id'));
+		$receiverUserID = intval($this->input->post('receiver_user_id'));
+		$message = $this->input->post('message');
+		$image = $this->input->post('image');
+		$date = $this->input->post('date');
+		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $senderUserID)->row_array();
+		$this->db->insert('private_chat_messages', array(
+			'uuid' => $uuid,
+			'user_id' => $senderUserID,
+			'message' => $message,
+			'type' => 'image',
+			'image' => $image,
+			'date' => $date
+		));
+		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
+		FCM::send_notification("Pesan baru", "[Gambar]", $receiver['fcm_id'], array(
+			'type' => 'new_private_message',
+			'subtype' => 'image',
+			'user_id' => "" . $senderUserID,
+			'sender_user_id' => "" . $senderUserID,
+			'receiver_user_id' => "" . $receiverUserID,
+			'message' => $message,
+			'user' => json_encode($user),
+			'date' => $date,
+			'image' => $image,
+			'hide_notification' => 'true'
+		), 'private_chat');
+		echo json_encode(array(
+			'image' => $image,
+			'user' => $user,
+			'date' => $date
+		));
+	}
+	
+	public function send_private_chat_sticker() {
+		$uuid = $this->input->post('uuid');
+		$senderUserID = intval($this->input->post('sender_user_id'));
+		$receiverUserID = intval($this->input->post('receiver_user_id'));
+		$message = $this->input->post('message');
+		$date = $this->input->post('date');
+		$stickerIDs = json_decode($this->input->post('sticker_ids'));
+		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $senderUserID)->row_array();
+		$stickers = [];
+		for ($i=0; $i<sizeof($stickerIDs); $i++) {
+			array_push($stickers, $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$i])->row_array());
+		}
+		$this->db->insert('private_chat_messages', array(
+			'uuid' => $uuid,
+			'user_id' => $senderUserID,
+			'message' => $message,
+			'type' => 'sticker',
+			'sticker_ids' => json_encode($stickerIDs),
+			'date' => $date
+		));
+		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
+		FCM::send_notification("Pesan baru", "[Stiker]", $receiver['fcm_id'], array(
+			'type' => 'new_private_message',
+			'subtype' => 'sticker',
+			'user_id' => "" . $senderUserID,
+			'sender_user_id' => "" . $senderUserID,
+			'receiver_user_id' => "" . $receiverUserID,
+			'message' => $message,
+			'user' => json_encode($user),
+			'date' => $date,
+			'stickers' => json_encode($stickers),
+			'hide_notification' => 'true'
+		), 'private_chat');
+		echo json_encode(array(
+			'stickers' => $stickers,
+			'user' => $user,
 			'date' => $date
 		));
 	}
@@ -606,5 +687,62 @@ class User extends CI_Controller {
 			'title' => $title,
 			'direct_url' => $directURL
 		));
+	}
+	
+	public function get_all_chats() {
+		$chats = [];
+		$userID = intval($this->input->post('user_id'));
+		$start = intval($this->input->post('start'));
+		$length = intval($this->input->post('length'));
+		$lastGroupMessageJSON = $this->db->query("SELECT * FROM `group_messages` ORDER BY `date` LIMIT 1")->row_array();
+		$lastGroupMessage = "";
+		if ($lastGroupMessageJSON['type'] == 'text') {
+			$lastGroupMessage = $lastGroupMessageJSON['message'];
+		} else if ($lastGroupMessageJSON['type'] == 'image') {
+			$lastGroupMessage = '[Gambar]';
+		} else if ($lastGroupMessageJSON['type'] == 'sticker') {
+			$lastGroupMessage = '[Stiker]';
+		}
+		array_push($chats, array(
+			'user_id' => 0,
+			'name' => 'Chat Room',
+			'last_message' => $lastGroupMessage,
+			'profile_picture' => ''
+		));
+		$privateChats = $this->db->query("SELECT * FROM `private_chats` WHERE `sender_user_id`=" . $userID . " OR `receiver_user_id`=" . $userID . " ORDER BY `date` DESC LIMIT " . $start . "," . $length)->result_array();
+		for ($i=0; $i<sizeof($privateChats); $i++) {
+			$privateChat = $privateChats[$i];
+			$opponentUserID = 0;
+			if (intval($privateChat['sender_user_id']) == $userID) {
+				$opponentUserID = intval($privateChat['receiver_user_id']);
+			} else if (intval($privateChat['receiver_user_id']) == $userID) {
+				$opponentUserID = intval($privateChat['sender_user_id']);
+			}
+			$opponentName = "";
+			$lastMessage = "";
+			$lastMessageType = "";
+			$opponent = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $opponentUserID)->row_array();
+			if ($opponent != null) {
+				$opponentName = $opponent['name'];
+			}
+			$privateMessages = $this->db->query("SELECT * FROM `private_chat_messages` WHERE `uuid`='" . $privateChat['uuid'] . "'")->result_array();
+			if (sizeof($privateMessages) > 0) {
+				$lastMessage = $privateMessages[0]['message'];
+				$lastMessageType = $privateMessages[0]['type'];
+				if ($privateMessages[0]['type'] == 'image') {
+					$lastMessage = '[Gambar]';
+				} else if ($privateMessages[0]['type'] == 'sticker') {
+					$lastMessage = '[Stiker]';
+				}
+			}
+			array_push($chats, array(
+				'user_id' => $opponentUserID,
+				'name' => $opponentName,
+				'last_message' => $lastMessage,
+				'last_message_type' => $lastMessageType,
+				'profile_picture' => $opponent['profile_picture']
+			));
+		}
+		echo json_encode($chats);
 	}
 }
