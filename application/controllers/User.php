@@ -593,15 +593,16 @@ class User extends CI_Controller {
 			'date' => $date
 		));
 		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
-		FCM::send_message("Pesan baru", "", $receiver['fcm_id'], array(
+		FCM::send_notification("Pesan baru", $message, $receiver['fcm_id'], array(
 			'type' => 'new_private_message',
 			'subtype' => 'text',
+			'user_id' => "" . $senderUserID,
 			'sender_user_id' => "" . $senderUserID,
 			'receiver_user_id' => "" . $receiverUserID,
 			'message' => $message,
 			'user' => json_encode($user),
 			'date' => $date
-		));
+		), 'private_chat');
 	}
 	
 	public function send_private_chat_image() {
