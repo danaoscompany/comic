@@ -601,7 +601,8 @@ class User extends CI_Controller {
 			'receiver_user_id' => "" . $receiverUserID,
 			'message' => $message,
 			'user' => json_encode($user),
-			'date' => $date
+			'date' => $date,
+			'hide_notification' => 'true'
 		), 'private_chat');
 	}
 	
