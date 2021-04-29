@@ -529,7 +529,10 @@ class User extends CI_Controller {
 			if ($messages[$i]['type'] == 'sticker') {
 				$stickerIDs = json_decode($messages[$i]['sticker_ids'], true);
 				for ($j=0; $j<sizeof($stickerIDs); $j++) {
-					array_push($stickers, $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array());
+					$sticker = $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array();
+					if ($sticker != null) {
+						array_push($stickers, $sticker);
+					}
 				}
 			}
 			$messages[$i]['stickers'] = $stickers;
