@@ -11,4 +11,13 @@ class Util extends CI_Controller {
 	        mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff ), mt_rand( 0, 0xffff )
 	    );
 	}
+	
+	public static function downloadFile($url) {
+		$c = curl_init();
+	    curl_setopt($c, CURLOPT_RETURNTRANSFER, 1);
+	    curl_setopt($c, CURLOPT_URL, $url);
+	    $contents = curl_exec($c);
+	    curl_close($c);
+	    return $contents;
+	}
 }

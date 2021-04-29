@@ -2,6 +2,7 @@
 
 include "FCM.php";
 include "simple_html_dom.php";
+include "Util.php";
 
 class Test extends CI_Controller {
 	
@@ -57,5 +58,9 @@ class Test extends CI_Controller {
 		$data = file_get_contents("http://localhost/comic/zippyshare.html");
 		$html = str_get_html($data);
 		print_r($html->find('.download_link')[0]->find("a")[1]->href);
+	}
+	
+	public function download_file() {
+		echo Util::downloadFile("https://www.google.com");
 	}
 }

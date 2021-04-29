@@ -520,7 +520,8 @@ class User extends CI_Controller {
 	public function generate_direct_download_link() {
 		$link = $this->input->post('link');
 		$server = strtolower($this->input->post('server'));
-		$html = file_get_html($link);
+		$data = Util::downloadFile($link);
+		$html = str_get_html($data);
 		$title = $html->find('title', 0)->innertext;
 		$directURL = "";
 		if ($server == "mediafire") {
