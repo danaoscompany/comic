@@ -448,13 +448,62 @@ class User extends CI_Controller {
 			'message' => $message,
 			'date' => $date
 		));
+		$id = intval($this->db->insert_id());
 		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
 			'type' => 'new_group_message',
+			'id' => "" . $id,
 			'user_id' => "" . $userID,
 			'subtype' => 'text',
 			'message' => $message,
 			'user' => json_encode($user),
 			'date' => $date
+		));
+	}
+	
+	public function reply_group_chat_message() {
+		$userID = intval($this->input->post('user_id'));
+		$parentMessageID = intval($this->input->post('parent_message_id'));
+		$message = $this->input->post('message');
+		$date = $this->input->post('date');
+		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array();
+		$parentMessage = $this->db->query("SELECT * FROM `group_messages` WHERE `id`=" . $parentMessageID)->row_array();
+		$stickers = [];
+		if ($parentMessage['type'] == 'sticker') {
+			$stickerIDs = json_decode($parentMessage['sticker_ids'], true);
+			for ($i=0; $i<sizeof($stickerIDs); $i++) {
+				$sticker = $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$i])->row_array();
+				if ($sticker != null) {
+					array_push($stickers, $sticker);
+				}
+			}
+		}
+		$parentMessage['stickers'] = $stickers;
+		$this->db->insert('group_messages', array(
+			'user_id' => $userID,
+			'parent_message_id' => $parentMessageID,
+			'type' => 'text',
+			'message' => $message,
+			'date' => $date
+		));
+		$id = intval($this->db->insert_id());
+		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
+			'type' => 'new_group_reply',
+			'id' => "" . $id,
+			'user_id' => "" . $userID,
+			'subtype' => 'text',
+			'message' => $message,
+			'parent_message_id' => "" . $parentMessageID,
+			'parent_message' => json_encode($parentMessage),
+			'user' => json_encode($user),
+			'date' => $date
+		));
+		echo json_encode(array(
+			'user_id' => $userID,
+			'user' => $user,
+			'message' => $message,
+			'date' => $date,
+			'parent_message_id' => $parentMessageID,
+			'parent_message' => $parentMessage
 		));
 	}
 	
@@ -471,8 +520,10 @@ class User extends CI_Controller {
 			'image' => $image,
 			'date' => $date
 		));
+		$id = intval($this->db->insert_id());
 		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
 			'type' => 'new_group_message',
+			'id' => "" . $id,
 			'user_id' => "" . $userID,
 			'subtype' => 'image',
 			'message' => $message,
@@ -499,8 +550,10 @@ class User extends CI_Controller {
 			'sticker_ids' => json_encode($stickerIDs),
 			'date' => $date
 		));
+		$id = intval($this->db->insert_id());
 		FCM::send_message_to_topic("Pesan baru", "", "groupchat", array(
 			'type' => 'new_group_message',
+			'id' => "" . $id,
 			'user_id' => "" . $userID,
 			'subtype' => 'sticker',
 			'message' => $message,
@@ -536,6 +589,22 @@ class User extends CI_Controller {
 				}
 			}
 			$messages[$i]['stickers'] = $stickers;
+			$parentMessageID = intval($messages[$i]['parent_message_id']);
+			if ($parentMessageID != 0) {
+				$messages[$i]['parent_message'] = $this->db->query("SELECT * FROM `group_messages` WHERE `id`=" . $parentMessageID)->row_array();
+				$messages[$i]['parent_message']['user'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $messages[$i]['parent_message']['user_id'])->row_array();
+				$stickers = [];
+				if ($messages[$i]['parent_message']['type'] == 'sticker') {
+					$stickerIDs = json_decode($messages[$i]['parent_message']['sticker_ids'], true);
+					for ($j=0; $j<sizeof($stickerIDs); $j++) {
+						$sticker = $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array();
+						if ($sticker != null) {
+							array_push($stickers, $sticker);
+						}
+					}
+				}
+				$messages[$i]['parent_message']['stickers'] = $stickers;
+			}
 		}
 		echo json_encode($messages);
 	}
@@ -571,6 +640,24 @@ class User extends CI_Controller {
 				}
 			}
 			$messages[$i]['stickers'] = $stickers;
+			$parentMessageID = intval($messages[$i]['parent_message_id']);
+			if ($parentMessageID != 0) {
+				$messages[$i]['parent_message'] = $this->db->query("SELECT * FROM `private_chat_messages` WHERE `id`=" . $parentMessageID)->row_array();
+				if ($messages[$i]['parent_message'] != null) {
+					$messages[$i]['parent_message']['user'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $messages[$i]['parent_message']['user_id'])->row_array();
+					$stickers = [];
+					if ($messages[$i]['parent_message']['type'] == 'sticker') {
+						$stickerIDs = json_decode($messages[$i]['parent_message']['sticker_ids'], true);
+						for ($j=0; $j<sizeof($stickerIDs); $j++) {
+							$sticker = $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array();
+							if ($sticker != null) {
+								array_push($stickers, $sticker);
+							}
+						}
+					}
+					$messages[$i]['parent_message']['stickers'] = $stickers;
+				}
+			}
 		}
 		echo json_encode(array(
 			'uuid' => $uuid,
@@ -592,6 +679,7 @@ class User extends CI_Controller {
 			'message' => $message,
 			'date' => $date
 		));
+		$id = intval($this->db->insert_id());
 		$this->db->where("uuid", $uuid);
 		$this->db->update('private_chats', array(
 			'date' => $date
@@ -599,6 +687,7 @@ class User extends CI_Controller {
 		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
 		FCM::send_notification("Pesan baru", $message, $receiver['fcm_id'], array(
 			'type' => 'new_private_message',
+			'id' => "" . $id,
 			'subtype' => 'text',
 			'user_id' => "" . $senderUserID,
 			'sender_user_id' => "" . $senderUserID,
@@ -608,6 +697,71 @@ class User extends CI_Controller {
 			'date' => $date,
 			'hide_notification' => 'true'
 		), 'private_chat');
+		echo json_encode(array(
+			'id' => $id
+		));
+	}
+	
+	public function reply_private_chat_message() {
+		$uuid = $this->input->post('uuid');
+		$senderUserID = intval($this->input->post('sender_user_id'));
+		$receiverUserID = intval($this->input->post('receiver_user_id'));
+		$parentMessageID = intval($this->input->post('parent_message_id'));
+		$message = $this->input->post('message');
+		$date = $this->input->post('date');
+		$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $senderUserID)->row_array();
+		$parentMessage = $this->db->query("SELECT * FROM `private_chat_messages` WHERE `id`=" . $parentMessageID)->row_array();
+		$stickers = [];
+		if ($parentMessage != null) {
+			if ($parentMessage['type'] == 'sticker') {
+				$stickerIDs = json_decode($parentMessage['sticker_ids'], true);
+				for ($i=0; $i<sizeof($stickerIDs); $i++) {
+					$sticker = $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$i])->row_array();
+					if ($sticker != null) {
+						array_push($stickers, $sticker);
+					}
+				}
+			}
+			$parentMessage['stickers'] = $stickers;
+		}
+		$this->db->insert('private_chat_messages', array(
+			'uuid' => $uuid,
+			'user_id' => $senderUserID,
+			'parent_message_id' => $parentMessageID,
+			'type' => 'text',
+			'message' => $message,
+			'date' => $date
+		));
+		$id = intval($this->db->insert_id());
+		$this->db->where("uuid", $uuid);
+		$this->db->update('private_chats', array(
+			'date' => $date
+		));
+		$receiver = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $receiverUserID)->row_array();
+		FCM::send_notification("Pesan baru", $message, $receiver['fcm_id'], array(
+			'type' => 'new_private_reply',
+			'id' => "" . $id,
+			'subtype' => 'text',
+			'user_id' => "" . $senderUserID,
+			'sender_user_id' => "" . $senderUserID,
+			'receiver_user_id' => "" . $receiverUserID,
+			'parent_message_id' => "" . $parentMessageID,
+			'message' => $message,
+			'image' => ($parentMessage!=null)?$parentMessage['image']:'',
+			'parent_message' => json_encode($parentMessage),
+			'user' => json_encode($user),
+			'date' => $date,
+			'hide_notification' => 'true'
+		), 'private_chat');
+		echo json_encode(array(
+			'id' => $id,
+			'user_id' => $senderUserID,
+			'user' => $user,
+			'message' => $message,
+			'date' => $date,
+			'parent_message_id' => $parentMessageID,
+			'parent_message' => $parentMessage
+		));
 	}
 	
 	public function send_private_chat_image() {
@@ -626,6 +780,7 @@ class User extends CI_Controller {
 			'image' => $image,
 			'date' => $date
 		));
+		$id = intval($this->db->insert_id());
 		$this->db->where("uuid", $uuid);
 		$this->db->update('private_chats', array(
 			'date' => $date
@@ -634,6 +789,7 @@ class User extends CI_Controller {
 		FCM::send_notification("Pesan baru", "[Gambar]", $receiver['fcm_id'], array(
 			'type' => 'new_private_message',
 			'subtype' => 'image',
+			'id' => "" . $id,
 			'user_id' => "" . $senderUserID,
 			'sender_user_id' => "" . $senderUserID,
 			'receiver_user_id' => "" . $receiverUserID,
@@ -644,6 +800,7 @@ class User extends CI_Controller {
 			'hide_notification' => 'true'
 		), 'private_chat');
 		echo json_encode(array(
+			'id' => $id,
 			'image' => $image,
 			'user' => $user,
 			'date' => $date
@@ -670,6 +827,7 @@ class User extends CI_Controller {
 			'sticker_ids' => json_encode($stickerIDs),
 			'date' => $date
 		));
+		$id = intval($this->db->insert_id());
 		$this->db->where("uuid", $uuid);
 		$this->db->update('private_chats', array(
 			'date' => $date
@@ -678,6 +836,7 @@ class User extends CI_Controller {
 		FCM::send_notification("Pesan baru", "[Stiker]", $receiver['fcm_id'], array(
 			'type' => 'new_private_message',
 			'subtype' => 'sticker',
+			'id' => "" . $id,
 			'user_id' => "" . $senderUserID,
 			'sender_user_id' => "" . $senderUserID,
 			'receiver_user_id' => "" . $receiverUserID,
@@ -688,6 +847,7 @@ class User extends CI_Controller {
 			'hide_notification' => 'true'
 		), 'private_chat');
 		echo json_encode(array(
+			'id' => $id,
 			'stickers' => $stickers,
 			'user' => $user,
 			'date' => $date
