@@ -487,6 +487,14 @@ class User extends CI_Controller {
 		$userID = intval($this->input->post('user_id'));
 		$nickname = $this->input->post('nickname');
 		$profilePictureChanged = intval($this->input->post('profile_picture_changed'));
+		$nicknameChanged = 0;
+		$users = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->result_array();
+		if (sizeof($users) > 0) {
+			$user = $users[0];
+			if ($user['name'] != $nickname) {
+				$nicknameChanged = 1;
+			}
+		}
 		if ($profilePictureChanged == 1) {
 			$config['upload_path']          = './userdata/';
 	        $config['allowed_types']        = '*';
@@ -502,11 +510,26 @@ class User extends CI_Controller {
 	        	echo json_encode($this->upload->display_errors());
 	        }
 		}
-		$this->db->where('id', $userID);
-		$this->db->update('users', array(
-			'name' => $nickname
-		));
-		echo json_encode($this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array());
+		if ($nicknameChanged == 1) {
+			$users = $this->db->query("SELECT * FROM `users` WHERE `name`='" . $nickname . "'")->result_array();
+			if (sizeof($users) > 0) {
+				echo json_encode(array(
+					'response_code' => -1
+				));
+			} else {
+				$this->db->where('id', $userID);
+				$this->db->update('users', array(
+					'name' => $nickname
+				));
+				$user = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $userID)->row_array();
+				$user['response_code'] = 1;
+				echo json_encode($user);
+			}
+		} else {
+			echo json_encode(array(
+				'response_code' => 1
+			));
+		}
 	}
 	
 	public function send_group_chat_message() {
