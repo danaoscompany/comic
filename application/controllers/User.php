@@ -90,7 +90,7 @@ class User extends CI_Controller {
 			}
 			array_push($allComments, $comments[$i]);
 			$j++;
-			// Subcomments
+			/*// Subcomments
 			$subcomments = $this->db->query("SELECT * FROM `comments` WHERE `video_uuid`='" . $videoUUID . "' AND `parent_comment_id`=" . $comments[$i]['id'] . " ORDER BY `date` ASC")->result_array();
 			if (sizeof($subcomments) > 0) {
 				for ($k=0; $k<sizeof($subcomments); $k++) {
@@ -116,7 +116,7 @@ class User extends CI_Controller {
 					array_push($allComments, $subcomments[$k]);
 					$j++;
 				}
-			}
+			}*/
 		}
 		for ($i=0; $i<sizeof($allComments); $i++) {
 			$allComments[$i]['likes'] = $this->db->query("SELECT * FROM `comment_likes` WHERE `comment_id`=" . $allComments[$i]['id'])->num_rows();
@@ -124,7 +124,79 @@ class User extends CI_Controller {
 		usort($allComments, function ($comment1, $comment2) {
     		return intval($comment2['likes']) <=> intval($comment1['likes']);
 		});
-		//$allComments = array_slice($allComments, $start, $length);
+		$allComments = array_slice($allComments, $start, $length);
+		echo json_encode($allComments);
+	}
+	
+	public function get_subcomments() {
+		$this->json_response();
+		if (!$this->authorize()) return;
+		$parentCommentID = intval($this->input->post('parent_comment_id'));
+		$videoUUID = $this->input->post('video_uuid');
+		$start = intval($this->input->post('start'));
+		$length = intval($this->input->post('length'));
+		//echo "SELECT * FROM `comments` WHERE `parent_comment_id`=" . $parentCommentID . " AND `video_uuid`='" . $videoUUID . "' ORDER BY `date` DESC LIMIT " . $start . "," . $length;
+		//return;
+		$comments = $this->db->query("SELECT * FROM `comments` WHERE `parent_comment_id`=" . $parentCommentID . " AND `video_uuid`='" . $videoUUID . "' ORDER BY `date` DESC LIMIT " . $start . "," . $length)->result_array();
+		$allComments = [];
+		$j = 0;
+		for ($i=0; $i<sizeof($comments); $i++) {
+			$comments[$i]['user'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $comments[$i]['user_id'])->row_array();
+			$likeCount = $this->db->query("SELECT * FROM `comment_likes` WHERE `comment_id`=" . $comments[$i]['id'] . " AND `user_id`=" . $comments[$i]['user_id'])->num_rows();
+			$comments[$i]['liked'] = $likeCount>0;
+			$comments[$i]['like_count'] = $likeCount;
+			$comments[$i]['comment_count'] = $this->db->query("SELECT * FROM `comments` WHERE `parent_comment_id`=" . $comments[$i]['id'])->num_rows();
+			$stickerIDs = json_decode($comments[$i]['sticker_ids'], true);
+			$stickers = [];
+			for ($j=0; $j<sizeof($stickerIDs); $j++) {
+				array_push($stickers, $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array());
+			}
+			$comments[$i]['stickers'] = json_encode($stickers);
+			$parentCommentID = intval($comments[$i]['parent_comment_id']);
+			if ($parentCommentID != 0) {
+				$parentComment = $this->db->query("SELECT * FROM `comments` WHERE `id`=" . $parentCommentID)->row_array();
+				if ($parentComment != null) {
+					$parentCommentUserID = intval($parentComment['user_id']);
+					$comments[$i]['parent_comment_name'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $parentCommentUserID)->row_array()['name'];
+				}
+			}
+			array_push($allComments, $comments[$i]);
+			$j++;
+			/*// Subcomments
+			$subcomments = $this->db->query("SELECT * FROM `comments` WHERE `video_uuid`='" . $videoUUID . "' AND `parent_comment_id`=" . $comments[$i]['id'] . " ORDER BY `date` ASC")->result_array();
+			if (sizeof($subcomments) > 0) {
+				for ($k=0; $k<sizeof($subcomments); $k++) {
+					$subcomments[$k]['user'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $subcomments[$k]['user_id'])->row_array();
+					$likeCount = $this->db->query("SELECT * FROM `comment_likes` WHERE `comment_id`=" . $subcomments[$k]['id'] . " AND `user_id`=" . $subcomments[$k]['user_id'])->num_rows();
+					$subcomments[$k]['liked'] = $likeCount>0;
+					$subcomments[$k]['like_count'] = $likeCount;
+					$subcomments[$k]['comment_count'] = $this->db->query("SELECT * FROM `comments` WHERE `parent_comment_id`=" . $subcomments[$k]['id'])->num_rows();
+					$stickerIDs = json_decode($subcomments[$k]['sticker_ids'], true);
+					$stickers = [];
+					for ($j=0; $j<sizeof($stickerIDs); $j++) {
+						array_push($stickers, $this->db->query("SELECT * FROM `stickers` WHERE `id`=" . $stickerIDs[$j])->row_array());
+					}
+					$subcomments[$k]['stickers'] = json_encode($stickers);
+					$parentCommentID = intval($subcomments[$k]['parent_comment_id']);
+					if ($parentCommentID != 0) {
+						$parentComment = $this->db->query("SELECT * FROM `comments` WHERE `id`=" . $parentCommentID)->row_array();
+						if ($parentComment != null) {
+							$parentCommentUserID = intval($parentComment['user_id']);
+							$subcomments[$k]['parent_comment_name'] = $this->db->query("SELECT * FROM `users` WHERE `id`=" . $parentCommentUserID)->row_array()['name'];
+						}
+					}
+					array_push($allComments, $subcomments[$k]);
+					$j++;
+				}
+			}*/
+		}
+		for ($i=0; $i<sizeof($allComments); $i++) {
+			$allComments[$i]['likes'] = $this->db->query("SELECT * FROM `comment_likes` WHERE `comment_id`=" . $allComments[$i]['id'])->num_rows();
+		}
+		/*usort($allComments, function ($comment1, $comment2) {
+    		return intval($comment2['likes']) <=> intval($comment1['likes']);
+		});
+		$allComments = array_slice($allComments, $start, $length);*/
 		echo json_encode($allComments);
 	}
 	
