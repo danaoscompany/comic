@@ -89,7 +89,17 @@ class Admin extends CI_Controller {
 	public function get_users() {
 		$this->json_response();
 		if (!$this->authorize()) return;
-		$users = $this->db->query("SELECT * FROM `users` ORDER BY `name`")->result_array();
+		$start = intval($this->input->post('start'));
+		$length = intval($this->input->post('length'));
+		$users = $this->db->query("SELECT * FROM `users` ORDER BY `name` DESC LIMIT " . $start . "," . $length)->result_array();
+		echo json_encode($users);
+	}
+	
+	public function search_users() {
+		$this->json_response();
+		if (!$this->authorize()) return;
+		$query = $this->input->post('query');
+		$users = $this->db->query("SELECT * FROM `users` WHERE `name` LIKE '%" . $query . "%' ORDER BY `name` DESC")->result_array();
 		echo json_encode($users);
 	}
 	
